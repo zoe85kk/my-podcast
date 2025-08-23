@@ -6,7 +6,7 @@ from xml.etree.ElementTree import Element, SubElement, ElementTree, tostring
 from xml.dom.minidom import parseString
 
 # ----------------- 配置 -----------------
-CHANNEL_ID = "UC3XTzVzaHQEd30rQbuvCtTQ"  # Last Week Tonight的频道ID
+PLAYLIST_ID = "PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W"  # Last Week Tonight播放列表ID
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
@@ -51,15 +51,13 @@ def get_latest_videos():
     last_video_id = get_last_video_id()
     print(f"上次处理的视频ID: {last_video_id}")
     
-    # 使用YouTube API获取频道最新视频
-    url = f"https://www.googleapis.com/youtube/v3/search"
+    # 使用YouTube API获取播放列表最新视频
+    url = f"https://www.googleapis.com/youtube/v3/playlistItems"
     params = {
         'key': YOUTUBE_API_KEY,
-        'channelId': CHANNEL_ID,
+        'playlistId': PLAYLIST_ID,
         'part': 'snippet',
-        'order': 'date',  # 按上传日期排序
-        'maxResults': 50,
-        'type': 'video'
+        'maxResults': 50
     }
     
     try:
@@ -69,9 +67,10 @@ def get_latest_videos():
         
         videos = []
         for item in data.get('items', []):
-            video_id = item['id']['videoId']
+            video_id = item['snippet']['resourceId']['videoId']
             title = item['snippet']['title']
             published_at = item['snippet']['publishedAt']
+            position = item['snippet']['position']  # 播放列表中的位置
             
             # 如果找到了上次处理的视频，停止添加
             if last_video_id and video_id == last_video_id:
@@ -80,11 +79,12 @@ def get_latest_videos():
             videos.append({
                 'id': video_id,
                 'title': title,
-                'published_at': published_at
+                'published_at': published_at,
+                'position': position
             })
         
-        # 按发布时间排序（最新的在前面）
-        videos.sort(key=lambda v: v['published_at'], reverse=True)
+        # 按播放列表位置排序（位置小的在前面，代表播放列表中的顺序）
+        videos.sort(key=lambda v: v['position'])
         
         # 只保留最新 MAX_ITEMS 条
         latest_videos = videos[:MAX_ITEMS]
@@ -155,7 +155,7 @@ def update_rss(videos):
     
     channel = SubElement(rss, "channel")
     SubElement(channel, "title").text = "Last Week Tonight Podcast"
-    SubElement(channel, "link").text = f"https://www.youtube.com/channel/{CHANNEL_ID}"
+    SubElement(channel, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
     SubElement(channel, "description").text = "Zoe Podcast"
     SubElement(channel, "language").text = "en-us"
     SubElement(channel, "itunes:image", href="https://github.com/zoe85kk/my-podcast/cover.jpg")

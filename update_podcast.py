@@ -10,6 +10,7 @@ CHANNEL_URL = "https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NP
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
+LAST_INDEX_FILE = "last_index.txt"  # 存储上次处理的播放列表索引
 
 # GitHub 配置
 GITHUB_REPO = "zoe85kk/my-podcast"  # e.g. jessie/youtube-podcast
@@ -23,18 +24,38 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 import json
 import subprocess
 
+def get_last_index():
+    """获取上次处理的播放列表索引"""
+    last_index_path = os.path.join(DOWNLOAD_DIR, LAST_INDEX_FILE)
+    if os.path.exists(last_index_path):
+        try:
+            with open(last_index_path, 'r') as f:
+                return int(f.read().strip())
+        except (ValueError, FileNotFoundError):
+            pass
+    return 0  # 如果没有记录，从0开始
+
+def save_last_index(index):
+    """保存最新处理的播放列表索引"""
+    last_index_path = os.path.join(DOWNLOAD_DIR, LAST_INDEX_FILE)
+    with open(last_index_path, 'w') as f:
+        f.write(str(index))
+
 def get_latest_videos():
     """
-    返回最新 N 条视频，确保第一条就是最新上传的视频
+    返回最新 N 条视频，基于上次索引递增查询
     """
-    # 用 flat-playlist 获取播放列表信息
+    last_index = get_last_index()
+    print(f"上次处理的索引: {last_index}")
+    
+    # 用 flat-playlist 获取播放列表信息，获取更多视频以确保找到新索引
     result = subprocess.run(
         ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
          "--cookies-from-browser", "chrome",  # 或者使用 "--cookies", "cookies.txt"
          "--flat-playlist",
          "--get-id",
          "--get-title",
-         "--playlist-end", str(MAX_ITEMS*2),
+         "--playlist-end", "50",  # 获取更多视频以确保找到新索引
          CHANNEL_URL],
         capture_output=True, text=True
     )
@@ -61,11 +82,18 @@ def get_latest_videos():
 
     print(f"找到 {len(videos)} 个有效视频")
 
+    # 查找大于上次索引的视频（新视频）
+    new_videos = [v for v in videos if v["playlist_index"] > last_index]
+    
+    if not new_videos:
+        print(f"没有找到新的视频（索引 > {last_index}）")
+        return []
+    
     # 按播放列表索引倒序排序（索引大的在前面，代表最新的视频）
-    videos.sort(key=lambda v: v["playlist_index"], reverse=True)
-
+    new_videos.sort(key=lambda v: v["playlist_index"], reverse=True)
+    
     # 只保留最新 MAX_ITEMS 条
-    latest_videos = videos[:MAX_ITEMS]
+    latest_videos = new_videos[:MAX_ITEMS]
 
     # 打印调试信息，确认顺序
     for v in latest_videos:
@@ -161,6 +189,11 @@ def main():
 
     print("更新 RSS feed.xml")
     update_rss(videos)
+
+    # 保存最新处理的索引
+    latest_index = max(v['playlist_index'] for v in videos)
+    save_last_index(latest_index)
+    print(f"保存最新索引: {latest_index}")
 
     print("推送到 GitHub")
     git_push()

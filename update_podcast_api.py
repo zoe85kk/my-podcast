@@ -192,8 +192,8 @@ def download_audio_backup(video_id, filename):
     return None
 
 # ----------------- 更新 RSS -----------------
-def update_rss(videos):
-    """更新RSS feed"""
+def update_rss():
+    """更新RSS feed，包含所有音频文件"""
     namespaces = {
         'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd'
     }
@@ -208,33 +208,48 @@ def update_rss(videos):
     SubElement(channel, "language").text = "en-us"
     SubElement(channel, "itunes:image", href=f"{RSS_URL_BASE}/cover.jpg")
 
-    for v in videos:
-        # 使用下载时确定的文件名
-        if 'filename' in v:
-            filename = v['filename']
-        else:
-            # 如果没有下载信息，生成默认文件名
-            episode_name = extract_episode_info(v["title"])
-            if episode_name:
-                filename = f"{episode_name}.mp3"
-            else:
-                filename = f"{v['id']}.mp3"
+    # 扫描目录中所有MP3文件
+    mp3_files = []
+    for file in os.listdir(DOWNLOAD_DIR):
+        if file.endswith('.mp3'):
+            mp3_files.append(file)
+    
+    print(f"找到 {len(mp3_files)} 个音频文件")
+    
+    # 按文件名排序（S08E28, S08E29, S08E30...）
+    mp3_files.sort(reverse=True)  # 最新的在前面
+    
+    for filename in mp3_files:
+        # 从文件名提取信息
+        episode_name = extract_episode_info(filename.replace('.mp3', ''))
         
+        # 创建RSS条目
         item = SubElement(channel, "item")
-        SubElement(item, "title").text = v["title"]
-        SubElement(item, "link").text = f"https://www.youtube.com/watch?v={v['id']}"
-        SubElement(item, "guid").text = v["id"]
-
-        # 使用当前时间作为播客发布时间（因为这是添加到播客的时间）
+        
+        if episode_name:
+            # 如果有季数集数信息，使用它作为标题
+            title = f"Last Week Tonight - {episode_name}"
+        else:
+            # 否则使用文件名
+            title = filename.replace('.mp3', '')
+        
+        SubElement(item, "title").text = title
+        SubElement(item, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
+        SubElement(item, "guid").text = filename
+        
+        # 使用当前时间作为发布时间
         pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
         SubElement(item, "pubDate").text = pub_date
-
+        
         SubElement(item, "enclosure", url=f"{RSS_URL_BASE}/{filename}", type="audio/mpeg")
+        print(f"添加RSS条目: {title} -> {filename}")
 
     xml_str = parseString(tostring(rss)).toprettyxml(indent="  ")
     feed_path = os.path.join(DOWNLOAD_DIR, FEED_FILE)
     with open(feed_path, "w", encoding="utf-8") as f:
         f.write(xml_str)
+    
+    print(f"RSS更新完成，包含 {len(mp3_files)} 个音频文件")
     return feed_path
 
 # ----------------- Git 操作 -----------------
@@ -324,13 +339,8 @@ def main():
             v['filename'] = new_filename
 
     print("更新 RSS feed.xml")
-    # 只包含成功下载的视频
-    successful_videos = [v for v in videos if v.get('download_success', False)]
-    if successful_videos:
-        update_rss(successful_videos)
-        print(f"RSS更新完成，包含 {len(successful_videos)} 个成功下载的视频")
-    else:
-        print("没有成功下载的视频，跳过RSS更新")
+    # 更新RSS，包含所有音频文件
+    update_rss()
 
     # 保存最新处理的播放列表位置
     latest_position = videos[0]['position']

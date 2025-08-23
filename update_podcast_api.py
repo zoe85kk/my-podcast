@@ -242,11 +242,11 @@ def git_push():
     """推送到GitHub"""
     os.chdir(DOWNLOAD_DIR)
     
-    # 获取GitHub Token
+    # 获取GitHub Token（本地环境）
     github_token = os.getenv("PD_TOKEN")
     if not github_token:
-        print("错误: 未设置 PD_TOKEN 环境变量")
-        return
+        print("警告: 未设置 PD_TOKEN 环境变量，尝试使用本地Git配置")
+        # 继续执行，依赖本地Git配置
     
     if not os.path.exists(os.path.join(DOWNLOAD_DIR, ".git")):
         subprocess.run(["git", "init"], check=True)

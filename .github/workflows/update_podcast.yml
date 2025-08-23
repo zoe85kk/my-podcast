@@ -9,6 +9,9 @@ on:
 jobs:
   update-podcast:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
     
     steps:
     - name: Checkout code
@@ -38,11 +41,17 @@ jobs:
     - name: Run podcast update
       run: |
         python update_podcast_api.py
+        echo "Podcast update completed"
+        ls -la
         
     - name: Commit and push changes
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        git config --local user.email "github-actions[bot]@users.noreply.github.com"
+        git config --local user.name "github-actions[bot]"
         git add .
-        git diff --quiet && git diff --staged --quiet || git commit -m "Auto-update podcast via GitHub Actions"
-        git push
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Auto-update podcast via GitHub Actions [skip ci]"
+          git push origin main
+        fi

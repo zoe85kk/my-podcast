@@ -10,7 +10,6 @@ CHANNEL_URL = "https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NP
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
-PLAYLIST_FETCH_COUNT = 20  # 从播放列表中获取更多视频来确保找到最新的
 
 # GitHub 配置
 GITHUB_REPO = "zoe85kk/my-podcast"  # e.g. jessie/youtube-podcast
@@ -26,68 +25,52 @@ import subprocess
 
 def get_latest_videos():
     """
-    返回最新 N 条视频，通过解析标题中的集数来确定最新
+    返回最新 N 条视频，确保第一条就是最新上传的视频
     """
-    # 用 dump-json 拿到详细信息
+    # 用 flat-playlist 获取播放列表信息
     result = subprocess.run(
         ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
-         "--dump-json",
-         "--playlist-end", str(PLAYLIST_FETCH_COUNT),
+         "--flat-playlist",
+         "--get-id",
+         "--get-title",
+         "--playlist-end", str(MAX_ITEMS*2),
          CHANNEL_URL],
         capture_output=True, text=True
     )
 
+    print(f"yt-dlp 输出行数: {len(result.stdout.strip().split(chr(10)))}")
+    print(f"yt-dlp 错误输出: {result.stderr}")
+
+    # 解析 flat-playlist 输出（交替的标题和ID）
+    lines = result.stdout.strip().split("\n")
     videos = []
-    for line in result.stdout.strip().split("\n"):
-        if not line:
-            continue
-        data = json.loads(line)
-        title = data.get("title")
-        vid = data.get("id")
-        
-        if title and vid:
-            # 解析标题中的集数，格式如 "S8 E5: ..." 或 "S8E5: ..."
-            episode_number = extract_episode_number(title)
-            if episode_number:
+    
+    for i in range(0, len(lines), 2):
+        if i + 1 < len(lines):
+            title = lines[i].strip()
+            vid = lines[i + 1].strip()
+            if title and vid:
+                # 使用播放列表索引作为排序依据
                 videos.append({
                     "title": title,
                     "id": vid,
-                    "episode_number": episode_number
+                    "playlist_index": len(videos) + 1
                 })
+                print(f"处理视频: title={title}, vid={vid}, index={len(videos)}")
 
-    # 按集数倒序排序（数字大的集数更新）
-    videos.sort(key=lambda v: v["episode_number"], reverse=True)
+    print(f"找到 {len(videos)} 个有效视频")
+
+    # 按播放列表索引排序（索引小的在前面，通常是更新的视频）
+    videos.sort(key=lambda v: v["playlist_index"])
 
     # 只保留最新 MAX_ITEMS 条
     latest_videos = videos[:MAX_ITEMS]
 
     # 打印调试信息，确认顺序
     for v in latest_videos:
-        print(f"Title: {v['title']}, Episode: S8 E{v['episode_number']}")
+        print(f"Title: {v['title']}, Playlist Index: {v['playlist_index']}")
 
     return latest_videos
-
-def extract_episode_number(title):
-    """
-    从标题中提取集数，支持多种格式：
-    - "S8 E5: ..." -> 5
-    - "S8E5: ..." -> 5
-    - "Season 8 Episode 5: ..." -> 5
-    """
-    import re
-    
-    # 尝试匹配 "S8 E5" 格式
-    match = re.search(r'S8\s*E(\d+)', title, re.IGNORECASE)
-    if match:
-        return int(match.group(1))
-    
-    # 尝试匹配 "Season 8 Episode 5" 格式
-    match = re.search(r'Season\s*8\s*Episode\s*(\d+)', title, re.IGNORECASE)
-    if match:
-        return int(match.group(1))
-    
-    # 如果都没匹配到，返回 None
-    return None
 
 
 
@@ -128,7 +111,7 @@ def update_rss(videos):
         SubElement(item, "link").text = f"https://www.youtube.com/watch?v={v['id']}"
         SubElement(item, "guid").text = v["id"]
 
-        # pubDate 用当前时间，因为我们已经按集数排序了
+        # pubDate 用当前时间，因为我们已经按播放列表索引排序了
         pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
         SubElement(item, "pubDate").text = pub_date
 
@@ -162,8 +145,16 @@ def main():
 
     for v in videos:
         filename = f"{v['id']}.mp3"
-        print(f"下载音频: {v['title']}")
-        download_audio(v['id'], filename)
+        filepath = os.path.join(DOWNLOAD_DIR, filename)
+        if os.path.exists(filepath):
+            print(f"音频文件已存在，跳过下载: {v['title']}")
+        else:
+            print(f"下载音频: {v['title']}")
+            try:
+                download_audio(v['id'], filename)
+            except subprocess.CalledProcessError:
+                print(f"下载失败，跳过: {v['title']}")
+                continue
 
     print("更新 RSS feed.xml")
     update_rss(videos)

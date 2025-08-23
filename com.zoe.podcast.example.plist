@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.zoe.podcast</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/opt/python@3.11/libexec/bin/python3</string>
+        <string>/Users/zoekk/Desktop/my-podcast/update_podcast_api.py</string>
+    </array>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/zoekk/Desktop/my-podcast</string>
+    
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>21</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+    
+    <key>StandardOutPath</key>
+    <string>/Users/zoekk/Desktop/my-podcast/launchd.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/Users/zoekk/Desktop/my-podcast/launchd_error.log</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>YOUTUBE_API_KEY</key>
+        <string>YOUR_YOUTUBE_API_KEY_HERE</string>
+        <key>PD_TOKEN</key>
+        <string>YOUR_GITHUB_TOKEN_HERE</string>
+    </dict>
+    
+    <key>RunAtLoad</key>
+    <false/>
+    
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>

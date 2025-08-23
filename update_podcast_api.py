@@ -1,7 +1,7 @@
 import os
 import requests
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 from xml.etree.ElementTree import Element, SubElement, ElementTree, tostring
 from xml.dom.minidom import parseString
 
@@ -237,8 +237,9 @@ def update_rss():
         SubElement(item, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
         SubElement(item, "guid").text = filename
         
-        # 使用当前时间作为发布时间
-        pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        # 使用当前时间-1天作为发布时间，避免未来时间问题
+        yesterday = datetime.now() - timedelta(days=1)
+        pub_date = yesterday.strftime("%a, %d %b %Y %H:%M:%S +0000")
         SubElement(item, "pubDate").text = pub_date
         
         SubElement(item, "enclosure", url=f"{RSS_URL_BASE}/{filename}", type="audio/mpeg")

@@ -2,16 +2,16 @@
 <rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
   <channel>
     <title>Last Week Tonight Podcast</title>
-    <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
+    <link>https://www.youtube.com/channel/UC3XTzVzaHQEd30rQbuvCtTQ</link>
     <description>Zoe Podcast</description>
     <language>en-us</language>
     <itunes:image href="https://github.com/zoe85kk/my-podcast/cover.jpg"/>
     <item>
-      <title>S8 E30: Union Busting, January 6th &amp; AOC: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=ymG9ZMOYjaw</link>
-      <guid>ymG9ZMOYjaw</guid>
-      <pubDate>Sat, 23 Aug 2025 10:46:58 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/ymG9ZMOYjaw.mp3" type="audio/mpeg"/>
+      <title>MAHA &amp;amp; Casey Means #lastweektonight</title>
+      <link>https://www.youtube.com/watch?v=7wdGf-48OKo</link>
+      <guid>7wdGf-48OKo</guid>
+      <pubDate>Wed, 20 Aug 2025 19:01:16 +0000</pubDate>
+      <enclosure url="https://zoe85kk.github.io/my-podcast/7wdGf-48OKo.mp3" type="audio/mpeg"/>
     </item>
   </channel>
 </rss>

@@ -11,6 +11,7 @@ DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
 LAST_INDEX_FILE = "last_index.txt"  # 存储上次处理的播放列表索引
+COOKIES_FILE = "cookies.txt"  # YouTube认证cookies文件
 
 # GitHub 配置
 GITHUB_REPO = "zoe85kk/my-podcast"  # e.g. jessie/youtube-podcast
@@ -45,17 +46,23 @@ def get_latest_videos():
     """
     返回最新 N 条视频，基于上次索引递增查询
     """
+    # 检查cookies文件是否存在
+    if not os.path.exists(COOKIES_FILE):
+        print(f"错误: 未找到cookies文件 '{COOKIES_FILE}'")
+        print("请按照 README_cookies.md 的说明获取cookies文件")
+        return []
+    
     last_index = get_last_index()
     print(f"上次处理的索引: {last_index}")
     
     # 用 flat-playlist 获取播放列表信息，获取更多视频以确保找到新索引
     result = subprocess.run(
         ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
-         "--cookies-from-browser", "chrome",  # 或者使用 "--cookies", "cookies.txt"
+         "--cookies", COOKIES_FILE,  # 使用cookies文件
          "--flat-playlist",
          "--get-id",
          "--get-title",
-         "--playlist-end", "50",  # 获取更多视频以确保找到新索引
+         "--playlist-end", str(MAX_ITEMS*2),
          CHANNEL_URL],
         capture_output=True, text=True
     )
@@ -111,7 +118,7 @@ def download_audio(video_id, filename):
     url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = [
         "/Users/zoekk/Library/Python/3.9/bin/yt-dlp", 
-        "--cookies-from-browser", "chrome",  # 或者使用 "--cookies", "cookies.txt"
+        "--cookies", COOKIES_FILE,  # 使用cookies文件
         "-x", "--audio-format", "mp3", "-o", filepath, url
     ]
     subprocess.run(ydl_opts, check=True)

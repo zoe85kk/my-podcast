@@ -9,7 +9,7 @@ from xml.dom.minidom import parseString
 PLAYLIST_ID = "PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W"  # Last Week Tonight播放列表ID
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
-MAX_ITEMS = 1  # RSS 保留最近几集
+MAX_ITEMS = 3  # RSS 保留最近几集
 LAST_POSITION_FILE = "last_index.txt"  # 存储上次处理的播放列表位置（position）
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # 必须设置环境变量
 
@@ -165,7 +165,7 @@ def update_rss(videos):
     SubElement(channel, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
     SubElement(channel, "description").text = "Zoe Podcast"
     SubElement(channel, "language").text = "en-us"
-    SubElement(channel, "itunes:image", href="https://github.com/zoe85kk/my-podcast/cover.jpg")
+    SubElement(channel, "itunes:image", href=f"{RSS_URL_BASE}/cover.jpg")
 
     for v in videos:
         filename = f"{v['id']}.mp3"
@@ -174,8 +174,8 @@ def update_rss(videos):
         SubElement(item, "link").text = f"https://www.youtube.com/watch?v={v['id']}"
         SubElement(item, "guid").text = v["id"]
 
-        # 使用API返回的发布时间
-        pub_date = datetime.fromisoformat(v["published_at"].replace('Z', '+00:00')).strftime("%a, %d %b %Y %H:%M:%S +0000")
+        # 使用当前时间作为播客发布时间（因为这是添加到播客的时间）
+        pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
         SubElement(item, "pubDate").text = pub_date
 
         SubElement(item, "enclosure", url=f"{RSS_URL_BASE}/{filename}", type="audio/mpeg")

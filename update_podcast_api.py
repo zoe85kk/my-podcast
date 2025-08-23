@@ -129,36 +129,65 @@ def download_audio(video_id, filename):
         return filepath
     
     url = f"https://www.youtube.com/watch?v={video_id}"
-    ydl_opts = [
-        "yt-dlp",  # 使用系统安装的yt-dlp
-        "-x", "--audio-format", "mp3", "-o", filepath, url
+    
+    # 尝试多种下载策略
+    download_strategies = [
+        # 策略1：基本下载
+        ["yt-dlp", "-x", "--audio-format", "mp3", "--no-playlist", "-o", filepath, url],
+        # 策略2：添加更多选项
+        ["yt-dlp", "-x", "--audio-format", "mp3", "--no-playlist", "--extractor-args", "youtube:player_client=android", "-o", filepath, url],
+        # 策略3：使用不同的音频质量
+        ["yt-dlp", "-x", "--audio-format", "mp3", "--no-playlist", "--audio-quality", "0", "-o", filepath, url],
+        # 策略4：添加用户代理
+        ["yt-dlp", "-x", "--audio-format", "mp3", "--no-playlist", "--user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "-o", filepath, url]
     ]
     
-    try:
-        subprocess.run(ydl_opts, check=True)
-        return filepath
-    except subprocess.CalledProcessError as e:
-        print(f"下载失败: {e}")
-        # 如果下载失败，尝试使用备用方法
-        return download_audio_backup(video_id, filename)
+    for i, strategy in enumerate(download_strategies, 1):
+        try:
+            print(f"尝试下载策略 {i}: {' '.join(strategy[1:])}")
+            subprocess.run(strategy, check=True, capture_output=True, text=True)
+            if os.path.exists(filepath):
+                print(f"策略 {i} 下载成功")
+                return filepath
+        except subprocess.CalledProcessError as e:
+            print(f"策略 {i} 失败: {e}")
+            continue
+    
+    print("所有yt-dlp策略都失败了，尝试备用方法")
+    return download_audio_backup(video_id, filename)
 
 def download_audio_backup(video_id, filename):
     """备用下载方法：使用pytube"""
     try:
         from pytube import YouTube
         url = f"https://www.youtube.com/watch?v={video_id}"
+        print(f"尝试pytube下载: {url}")
+        
         yt = YouTube(url)
         
         # 获取音频流
-        audio_stream = yt.streams.filter(only_audio=True).first()
-        if audio_stream:
+        audio_streams = yt.streams.filter(only_audio=True)
+        if audio_streams:
+            # 选择最高质量的音频流
+            audio_stream = audio_streams.order_by('abr').desc().first()
+            print(f"选择音频流: {audio_stream}")
+            
             filepath = os.path.join(DOWNLOAD_DIR, filename)
             audio_stream.download(output_path=DOWNLOAD_DIR, filename=filename)
-            return filepath
+            
+            if os.path.exists(filepath):
+                print(f"pytube下载成功: {filepath}")
+                return filepath
+            else:
+                print("pytube下载失败：文件未创建")
+        else:
+            print("未找到可用的音频流")
     except ImportError:
         print("pytube未安装，无法使用备用下载方法")
     except Exception as e:
         print(f"备用下载方法失败: {e}")
+        import traceback
+        traceback.print_exc()
     
     return None
 
@@ -268,8 +297,9 @@ def main():
             print(f"下载音频: {v['title']} -> {new_filename}")
             download_success = False
             
-            if download_audio(v['id'], temp_filename):
-                # 下载成功后重命名文件
+            download_result = download_audio(v['id'], temp_filename)
+            if download_result:
+                # 下载成功，检查文件
                 if os.path.exists(temp_filepath):
                     try:
                         os.rename(temp_filepath, new_filepath)
@@ -282,16 +312,25 @@ def main():
                         download_success = True
                 else:
                     print(f"下载失败，文件不存在: {temp_filename}")
+                    download_success = False
             else:
                 print(f"下载失败，跳过: {v['title']}")
-                continue
+                # 即使下载失败，也记录这个视频，只是标记为未下载
+                download_success = False
+                new_filename = f"{v['id']}.mp3"  # 使用默认文件名
             
             # 记录下载状态
             v['download_success'] = download_success
             v['filename'] = new_filename
 
     print("更新 RSS feed.xml")
-    update_rss(videos)
+    # 只包含成功下载的视频
+    successful_videos = [v for v in videos if v.get('download_success', False)]
+    if successful_videos:
+        update_rss(successful_videos)
+        print(f"RSS更新完成，包含 {len(successful_videos)} 个成功下载的视频")
+    else:
+        print("没有成功下载的视频，跳过RSS更新")
 
     # 保存最新处理的播放列表位置
     latest_position = videos[0]['position']

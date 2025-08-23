@@ -2,48 +2,15 @@
 <rss version="2.0">
   <channel>
     <title>Last Week Tonight Podcast</title>
-    <link>https://www.youtube.com/@LastWeekTonight/videos</link>
+    <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
     <description>Auto-generated podcast feed from YouTube full episodes.</description>
     <language>en-us</language>
-    <item/>
     <item>
-      <title>S8 E4: Unemployment, Covid Restrictions &amp; Dr. Seuss: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=zEFgnxZbADQ</link>
-      <guid>zEFgnxZbADQ</guid>
-      <pubDate>Fri, 22 Aug 2025 16:49:07 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/zEFgnxZbADQ.mp3" type="audio/mpeg"/>
-    </item>
-    <item/>
-    <item>
-      <title>S8 E30: Union Busting, January 6th &amp; AOC: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=ymG9ZMOYjaw</link>
-      <guid>ymG9ZMOYjaw</guid>
-      <pubDate>Fri, 22 Aug 2025 16:49:07 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/ymG9ZMOYjaw.mp3" type="audio/mpeg"/>
-    </item>
-    <item/>
-    <item>
-      <title>S8 E26: Misinformation, OAN &amp; Idaho: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=yc_Ys0t9AjY</link>
-      <guid>yc_Ys0t9AjY</guid>
-      <pubDate>Fri, 22 Aug 2025 16:49:07 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/yc_Ys0t9AjY.mp3" type="audio/mpeg"/>
-    </item>
-    <item/>
-    <item>
-      <title>S8 E25: PFAS &amp; Congress: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=xHzCRkt1f6c</link>
-      <guid>xHzCRkt1f6c</guid>
-      <pubDate>Fri, 22 Aug 2025 16:49:07 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/xHzCRkt1f6c.mp3" type="audio/mpeg"/>
-    </item>
-    <item/>
-    <item>
-      <title>S8 E29: The Power Grid, Ed Durr &amp; COP-26: Last Week Tonight with John Oliver</title>
-      <link>https://www.youtube.com/watch?v=uBX10Jjah50</link>
-      <guid>uBX10Jjah50</guid>
-      <pubDate>Fri, 22 Aug 2025 16:49:07 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/uBX10Jjah50.mp3" type="audio/mpeg"/>
+      <title>S8 E1: The Next Pandemic, Impeachment Trial &amp; State Republicans: Last Week Tonight with John Oliver</title>
+      <link>https://www.youtube.com/watch?v=jR2jTxiu0AU</link>
+      <guid>jR2jTxiu0AU</guid>
+      <pubDate>Mon, 16 Dec 2024 00:00:00 +0000</pubDate>
+      <enclosure url="https://zoe85kk.github.io/my-podcast/jR2jTxiu0AU.mp3" type="audio/mpeg"/>
     </item>
   </channel>
 </rss>

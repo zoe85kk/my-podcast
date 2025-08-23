@@ -30,6 +30,7 @@ def get_latest_videos():
     # 用 flat-playlist 获取播放列表信息
     result = subprocess.run(
         ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
+         "--cookies-from-browser", "chrome",  # 或者使用 "--cookies", "cookies.txt"
          "--flat-playlist",
          "--get-id",
          "--get-title",
@@ -81,7 +82,9 @@ def download_audio(video_id, filename):
         return filepath
     url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = [
-        "/Users/zoekk/Library/Python/3.9/bin/yt-dlp", "-x", "--audio-format", "mp3", "-o", filepath, url
+        "/Users/zoekk/Library/Python/3.9/bin/yt-dlp", 
+        "--cookies-from-browser", "chrome",  # 或者使用 "--cookies", "cookies.txt"
+        "-x", "--audio-format", "mp3", "-o", filepath, url
     ]
     subprocess.run(ydl_opts, check=True)
     return filepath

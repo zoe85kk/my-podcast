@@ -10,6 +10,7 @@ CHANNEL_URL = "https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NP
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
+PLAYLIST_FETCH_COUNT = 20  # 从播放列表中获取更多视频来确保找到最新的
 
 # GitHub 配置
 GITHUB_REPO = "zoe85kk/my-podcast"  # e.g. jessie/youtube-podcast
@@ -25,13 +26,13 @@ import subprocess
 
 def get_latest_videos():
     """
-    返回最新 N 条视频，确保第一条就是最新上传的视频
+    返回最新 N 条视频，通过解析标题中的集数来确定最新
     """
-    # 用 dump-json 拿到详细信息（包含 upload_date）
+    # 用 dump-json 拿到详细信息
     result = subprocess.run(
         ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
          "--dump-json",
-         "--playlist-end", str(MAX_ITEMS*2),
+         "--playlist-end", str(PLAYLIST_FETCH_COUNT),
          CHANNEL_URL],
         capture_output=True, text=True
     )
@@ -43,25 +44,50 @@ def get_latest_videos():
         data = json.loads(line)
         title = data.get("title")
         vid = data.get("id")
-        upload_date = data.get("upload_date")  # 例如 '20240820'
-        if title and vid and upload_date:
-            videos.append({
-                "title": title,
-                "id": vid,
-                "upload_date": upload_date
-            })
+        
+        if title and vid:
+            # 解析标题中的集数，格式如 "S8 E5: ..." 或 "S8E5: ..."
+            episode_number = extract_episode_number(title)
+            if episode_number:
+                videos.append({
+                    "title": title,
+                    "id": vid,
+                    "episode_number": episode_number
+                })
 
-    # 转换日期为整数，按上传日期倒序排序
-    videos.sort(key=lambda v: int(v["upload_date"]), reverse=True)
+    # 按集数倒序排序（数字大的集数更新）
+    videos.sort(key=lambda v: v["episode_number"], reverse=True)
 
     # 只保留最新 MAX_ITEMS 条
     latest_videos = videos[:MAX_ITEMS]
 
     # 打印调试信息，确认顺序
     for v in latest_videos:
-        print(f"Title: {v['title']}, Upload Date: {v['upload_date']}")
+        print(f"Title: {v['title']}, Episode: S8 E{v['episode_number']}")
 
     return latest_videos
+
+def extract_episode_number(title):
+    """
+    从标题中提取集数，支持多种格式：
+    - "S8 E5: ..." -> 5
+    - "S8E5: ..." -> 5
+    - "Season 8 Episode 5: ..." -> 5
+    """
+    import re
+    
+    # 尝试匹配 "S8 E5" 格式
+    match = re.search(r'S8\s*E(\d+)', title, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    
+    # 尝试匹配 "Season 8 Episode 5" 格式
+    match = re.search(r'Season\s*8\s*Episode\s*(\d+)', title, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    
+    # 如果都没匹配到，返回 None
+    return None
 
 
 
@@ -102,8 +128,8 @@ def update_rss(videos):
         SubElement(item, "link").text = f"https://www.youtube.com/watch?v={v['id']}"
         SubElement(item, "guid").text = v["id"]
 
-        # pubDate 用上传日期（格式化成 RSS 要求）
-        pub_date = datetime.strptime(v["upload_date"], "%Y%m%d").strftime("%a, %d %b %Y %H:%M:%S +0000")
+        # pubDate 用当前时间，因为我们已经按集数排序了
+        pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
         SubElement(item, "pubDate").text = pub_date
 
         SubElement(item, "enclosure", url=f"{RSS_URL_BASE}/{filename}", type="audio/mpeg")

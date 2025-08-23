@@ -61,8 +61,8 @@ def get_latest_videos():
 
     print(f"找到 {len(videos)} 个有效视频")
 
-    # 按播放列表索引排序（索引小的在前面，通常是更新的视频）
-    videos.sort(key=lambda v: v["playlist_index"])
+    # 按播放列表索引倒序排序（索引大的在前面，代表最新的视频）
+    videos.sort(key=lambda v: v["playlist_index"], reverse=True)
 
     # 只保留最新 MAX_ITEMS 条
     latest_videos = videos[:MAX_ITEMS]

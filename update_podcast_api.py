@@ -191,6 +191,64 @@ def download_audio_backup(video_id, filename):
     
     return None
 
+# ----------------- 保存视频标题映射 -----------------
+def save_video_title_mapping(video_id, video_title, episode_name):
+    """保存视频标题映射，用于RSS生成"""
+    if not episode_name:
+        return
+    
+    mapping_file = os.path.join(DOWNLOAD_DIR, "video_titles.txt")
+    
+    try:
+        # 读取现有映射
+        existing_mappings = {}
+        if os.path.exists(mapping_file):
+            with open(mapping_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    if '|' in line:
+                        parts = line.strip().split('|', 2)
+                        if len(parts) == 3:
+                            existing_mappings[parts[0]] = (parts[1], parts[2])
+        
+        # 添加新映射
+        existing_mappings[episode_name] = (video_id, video_title)
+        
+        # 写入文件
+        with open(mapping_file, 'w', encoding='utf-8') as f:
+            for ep_name, (vid_id, vid_title) in existing_mappings.items():
+                f.write(f"{ep_name}|{vid_id}|{vid_title}\n")
+        
+        print(f"保存标题映射: {episode_name} -> {video_title}")
+        
+    except Exception as e:
+        print(f"保存标题映射失败: {e}")
+
+# ----------------- 获取视频标题映射 -----------------
+def get_video_title_for_audio(audio_filename):
+    """根据音频文件名获取对应的视频标题"""
+    # 从video_titles.txt读取视频标题映射
+    mapping_file = os.path.join(DOWNLOAD_DIR, "video_titles.txt")
+    if not os.path.exists(mapping_file):
+        return None
+    
+    try:
+        # 从音频文件名提取episode名称
+        episode_name = audio_filename.replace('.mp3', '')
+        
+        with open(mapping_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                if '|' in line:
+                    parts = line.strip().split('|', 2)
+                    if len(parts) == 3:
+                        ep_name, video_id, video_title = parts
+                        if ep_name == episode_name:
+                            return video_title
+        
+        return None
+    except Exception as e:
+        print(f"读取video_titles.txt失败: {e}")
+        return None
+
 # ----------------- 更新 RSS -----------------
 def update_rss():
     """更新RSS feed，包含所有音频文件"""
@@ -220,18 +278,22 @@ def update_rss():
     mp3_files.sort(reverse=True)  # 最新的在前面
     
     for filename in mp3_files:
-        # 从文件名提取信息
-        episode_name = extract_episode_info(filename.replace('.mp3', ''))
-        
         # 创建RSS条目
         item = SubElement(channel, "item")
         
-        if episode_name:
-            # 如果有季数集数信息，使用它作为标题
-            title = f"Last Week Tonight - {episode_name}"
+        # 尝试从last_episode.txt获取视频标题映射
+        video_title = get_video_title_for_audio(filename)
+        
+        if video_title:
+            # 使用视频原始标题
+            title = video_title
         else:
-            # 否则使用文件名
-            title = filename.replace('.mp3', '')
+            # 如果没有找到映射，使用文件名作为后备
+            episode_name = extract_episode_info(filename.replace('.mp3', ''))
+            if episode_name:
+                title = f"Last Week Tonight - {episode_name}"
+            else:
+                title = filename.replace('.mp3', '')
         
         SubElement(item, "title").text = title
         SubElement(item, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
@@ -321,11 +383,18 @@ def main():
                         os.rename(temp_filepath, new_filepath)
                         print(f"下载成功并重命名: {temp_filename} -> {new_filename}")
                         download_success = True
+                        
+                        # 保存视频标题映射，用于RSS生成
+                        save_video_title_mapping(v['id'], v['title'], episode_name)
+                        
                     except OSError as e:
                         print(f"重命名失败: {e}")
                         # 如果重命名失败，保留原文件名
                         new_filename = temp_filename
                         download_success = True
+                        
+                        # 即使重命名失败，也保存标题映射
+                        save_video_title_mapping(v['id'], v['title'], episode_name)
                 else:
                     print(f"下载失败，文件不存在: {temp_filename}")
                     download_success = False

@@ -1,10 +1,11 @@
 <?xml version="1.0" ?>
-<rss version="2.0">
+<rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
   <channel>
     <title>Last Week Tonight Podcast</title>
     <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
-    <description>Auto-generated podcast feed from YouTube full episodes.</description>
+    <description>Zoe Podcast</description>
     <language>en-us</language>
+    <itunes:image href="https://github.com/zoe85kk/my-podcast/cover.jpg"/>
     <item>
       <title>S8 E1: The Next Pandemic, Impeachment Trial &amp; State Republicans: Last Week Tonight with John Oliver</title>
       <link>https://www.youtube.com/watch?v=jR2jTxiu0AU</link>

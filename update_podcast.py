@@ -19,13 +19,20 @@ RSS_URL_BASE = f"https://{GITHUB_REPO.split('/')[0]}.github.io/{GITHUB_REPO.spli
 
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
-# ----------------- 获取最新视频 -----------------
+# --------------- 获取最新视频 ---------------
 import json
+import subprocess
 
 def get_latest_videos():
+    """
+    返回最新 N 条视频，确保第一条就是最新上传的视频
+    """
     # 用 dump-json 拿到详细信息（包含 upload_date）
     result = subprocess.run(
-        ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp", "--dump-json", "--playlist-end", str(MAX_ITEMS*2), CHANNEL_URL],
+        ["/Users/zoekk/Library/Python/3.9/bin/yt-dlp",
+         "--dump-json",
+         "--playlist-end", str(MAX_ITEMS*2),
+         CHANNEL_URL],
         capture_output=True, text=True
     )
 
@@ -44,11 +51,18 @@ def get_latest_videos():
                 "upload_date": upload_date
             })
 
-    # 按上传日期倒序
-    videos.sort(key=lambda v: v["upload_date"], reverse=True)
+    # 转换日期为整数，按上传日期倒序排序
+    videos.sort(key=lambda v: int(v["upload_date"]), reverse=True)
 
-    # 只保留最新 N 条
-    return videos[:MAX_ITEMS]
+    # 只保留最新 MAX_ITEMS 条
+    latest_videos = videos[:MAX_ITEMS]
+
+    # 打印调试信息，确认顺序
+    for v in latest_videos:
+        print(f"Title: {v['title']}, Upload Date: {v['upload_date']}")
+
+    return latest_videos
+
 
 
 # ----------------- 下载音频 -----------------
@@ -65,12 +79,21 @@ def download_audio(video_id, filename):
 
 # ----------------- 更新 RSS -----------------
 def update_rss(videos):
+    # Define namespaces
+    namespaces = {
+        'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd'
+    }
+    
     rss = Element("rss", version="2.0")
+    # Add itunes namespace to root element
+    rss.set('xmlns:itunes', namespaces['itunes'])
+    
     channel = SubElement(rss, "channel")
     SubElement(channel, "title").text = "Last Week Tonight Podcast"
     SubElement(channel, "link").text = CHANNEL_URL
-    SubElement(channel, "description").text = "Auto-generated podcast feed from YouTube full episodes."
+    SubElement(channel, "description").text = "Zoe Podcast"
     SubElement(channel, "language").text = "en-us"
+    SubElement(channel, "itunes:image", href="https://github.com/zoe85kk/my-podcast/cover.jpg")
 
     for v in videos:
         filename = f"{v['id']}.mp3"

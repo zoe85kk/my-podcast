@@ -10,7 +10,7 @@ PLAYLIST_ID = "PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W"  # Last Week Tonight播放列
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 1  # RSS 保留最近几集
-LAST_VIDEO_ID_FILE = "last_video_id.txt"  # 存储上次处理的视频ID
+LAST_INDEX_FILE = "last_index.txt"  # 存储上次处理的播放列表索引
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # 必须设置环境变量
 
 # GitHub 配置
@@ -22,22 +22,22 @@ RSS_URL_BASE = f"https://{GITHUB_REPO.split('/')[0]}.github.io/{GITHUB_REPO.spli
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # --------------- 获取最新视频 ---------------
-def get_last_video_id():
-    """获取上次处理的视频ID"""
-    last_video_path = os.path.join(DOWNLOAD_DIR, LAST_VIDEO_ID_FILE)
-    if os.path.exists(last_video_path):
+def get_last_index():
+    """获取上次处理的播放列表索引"""
+    last_index_path = os.path.join(DOWNLOAD_DIR, LAST_INDEX_FILE)
+    if os.path.exists(last_index_path):
         try:
-            with open(last_video_path, 'r') as f:
-                return f.read().strip()
+            with open(last_index_path, 'r') as f:
+                return int(f.read().strip())
         except (ValueError, FileNotFoundError):
             pass
-    return None
+    return 0  # 如果没有记录，从0开始
 
-def save_last_video_id(video_id):
-    """保存最新处理的视频ID"""
-    last_video_path = os.path.join(DOWNLOAD_DIR, LAST_VIDEO_ID_FILE)
-    with open(last_video_path, 'w') as f:
-        f.write(video_id)
+def save_last_index(index):
+    """保存最新处理的播放列表索引"""
+    last_index_path = os.path.join(DOWNLOAD_DIR, LAST_INDEX_FILE)
+    with open(last_index_path, 'w') as f:
+        f.write(str(index))
 
 def get_latest_videos():
     """
@@ -48,8 +48,8 @@ def get_latest_videos():
         print("请设置环境变量: export YOUTUBE_API_KEY='your_api_key_here'")
         return []
     
-    last_video_id = get_last_video_id()
-    print(f"上次处理的视频ID: {last_video_id}")
+    last_index = get_last_index()
+    print(f"上次处理的播放列表索引: {last_index}")
     
     # 使用YouTube API获取播放列表最新视频
     url = f"https://www.googleapis.com/youtube/v3/playlistItems"
@@ -71,10 +71,6 @@ def get_latest_videos():
             title = item['snippet']['title']
             published_at = item['snippet']['publishedAt']
             position = item['snippet']['position']  # 播放列表中的位置
-            
-            # 如果找到了上次处理的视频，停止添加
-            if last_video_id and video_id == last_video_id:
-                break
                 
             videos.append({
                 'id': video_id,
@@ -83,15 +79,26 @@ def get_latest_videos():
                 'position': position
             })
         
-        # 按播放列表位置排序（位置小的在前面，代表播放列表中的顺序）
-        videos.sort(key=lambda v: v['position'])
+        print(f"播放列表中总共有 {len(videos)} 个视频")
+        print(f"最大索引: {max([v['position'] for v in videos]) if videos else 'None'}")
+        print(f"最小索引: {min([v['position'] for v in videos]) if videos else 'None'}")
+        
+        # 查找大于上次索引的视频（新视频）
+        new_videos = [v for v in videos if v['position'] > last_index]
+        
+        if not new_videos:
+            print(f"没有找到新的视频（position > {last_index}）")
+            return []
+        
+        # 按播放列表位置倒序排序（position大的在前面，代表最新的视频）
+        new_videos.sort(key=lambda v: v['position'], reverse=True)
         
         # 只保留最新 MAX_ITEMS 条
-        latest_videos = videos[:MAX_ITEMS]
+        latest_videos = new_videos[:MAX_ITEMS]
         
         print(f"找到 {len(latest_videos)} 个新视频")
         for v in latest_videos:
-            print(f"Title: {v['title']}, ID: {v['id']}")
+            print(f"Title: {v['title']}, Position: {v['position']}, ID: {v['id']}")
         
         return latest_videos
         
@@ -216,10 +223,10 @@ def main():
     print("更新 RSS feed.xml")
     update_rss(videos)
 
-    # 保存最新处理的视频ID
-    latest_video_id = videos[0]['id']
-    save_last_video_id(latest_video_id)
-    print(f"保存最新视频ID: {latest_video_id}")
+    # 保存最新处理的播放列表索引
+    latest_position = videos[0]['position']
+    save_last_index(latest_position)
+    print(f"保存最新播放列表索引: {latest_position}")
 
     print("推送到 GitHub")
     git_push()

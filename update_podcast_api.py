@@ -39,6 +39,18 @@ def save_last_position(position):
     with open(last_position_path, 'w') as f:
         f.write(str(position))
 
+def extract_episode_info(title):
+    """从标题中提取季数和集数信息"""
+    import re
+    # 匹配 S8 E30 或 S08 E30 格式
+    pattern = r'S(\d+)\s*E(\d+)'
+    match = re.search(pattern, title, re.IGNORECASE)
+    if match:
+        season = int(match.group(1))
+        episode = int(match.group(2))
+        return f"S{season:02d}E{episode:02d}"
+    return None
+
 def get_latest_videos():
     """
     使用YouTube API获取最新视频
@@ -168,7 +180,14 @@ def update_rss(videos):
     SubElement(channel, "itunes:image", href=f"{RSS_URL_BASE}/cover.jpg")
 
     for v in videos:
-        filename = f"{v['id']}.mp3"
+        # 生成新的文件名：S08E30.mp3
+        episode_name = extract_episode_info(v["title"])
+        if episode_name:
+            filename = f"{episode_name}.mp3"
+        else:
+            # 如果没有匹配到季数集数，使用原文件名
+            filename = f"{v['id']}.mp3"
+        
         item = SubElement(channel, "item")
         SubElement(item, "title").text = v["title"]
         SubElement(item, "link").text = f"https://www.youtube.com/watch?v={v['id']}"
@@ -208,14 +227,31 @@ def main():
         return
 
     for v in videos:
-        filename = f"{v['id']}.mp3"
-        filepath = os.path.join(DOWNLOAD_DIR, filename)
-        if os.path.exists(filepath):
-            print(f"音频文件已存在，跳过下载: {v['title']}")
+        # 生成新的文件名：S08E30.mp3
+        episode_name = extract_episode_info(v['title'])
+        if episode_name:
+            new_filename = f"{episode_name}.mp3"
         else:
-            print(f"下载音频: {v['title']}")
-            if download_audio(v['id'], filename):
-                print(f"下载成功: {filename}")
+            # 如果没有匹配到季数集数，使用原文件名
+            new_filename = f"{v['id']}.mp3"
+        
+        # 检查新文件名是否已存在
+        new_filepath = os.path.join(DOWNLOAD_DIR, new_filename)
+        if os.path.exists(new_filepath):
+            print(f"音频文件已存在，跳过下载: {v['title']} -> {new_filename}")
+        else:
+            # 下载到临时文件名，然后重命名
+            temp_filename = f"{v['id']}.mp3"
+            temp_filepath = os.path.join(DOWNLOAD_DIR, temp_filename)
+            
+            print(f"下载音频: {v['title']} -> {new_filename}")
+            if download_audio(v['id'], temp_filename):
+                # 下载成功后重命名文件
+                if os.path.exists(temp_filepath):
+                    os.rename(temp_filepath, new_filepath)
+                    print(f"下载成功并重命名: {temp_filename} -> {new_filename}")
+                else:
+                    print(f"下载失败，文件不存在: {temp_filename}")
             else:
                 print(f"下载失败，跳过: {v['title']}")
                 continue

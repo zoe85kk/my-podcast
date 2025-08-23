@@ -36,7 +36,7 @@ jobs:
     - name: Set environment variables
       run: |
         echo "YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}" >> $GITHUB_ENV
-        echo "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_ENV
+        echo "PD_TOKEN=${{ secrets.PD_TOKEN }}" >> $GITHUB_ENV
         
     - name: Run podcast update
       run: |

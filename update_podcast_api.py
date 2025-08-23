@@ -180,13 +180,16 @@ def update_rss(videos):
     SubElement(channel, "itunes:image", href=f"{RSS_URL_BASE}/cover.jpg")
 
     for v in videos:
-        # 生成新的文件名：S08E30.mp3
-        episode_name = extract_episode_info(v["title"])
-        if episode_name:
-            filename = f"{episode_name}.mp3"
+        # 使用下载时确定的文件名
+        if 'filename' in v:
+            filename = v['filename']
         else:
-            # 如果没有匹配到季数集数，使用原文件名
-            filename = f"{v['id']}.mp3"
+            # 如果没有下载信息，生成默认文件名
+            episode_name = extract_episode_info(v["title"])
+            if episode_name:
+                filename = f"{episode_name}.mp3"
+            else:
+                filename = f"{v['id']}.mp3"
         
         item = SubElement(channel, "item")
         SubElement(item, "title").text = v["title"]
@@ -210,14 +213,32 @@ def git_push():
     """推送到GitHub"""
     os.chdir(DOWNLOAD_DIR)
     
+    # 获取GitHub Token
+    github_token = os.getenv("PD_TOKEN")
+    if not github_token:
+        print("错误: 未设置 PD_TOKEN 环境变量")
+        return
+    
     if not os.path.exists(os.path.join(DOWNLOAD_DIR, ".git")):
         subprocess.run(["git", "init"], check=True)
-        subprocess.run(["git", "remote", "add", "origin", f"https://{GITHUB_TOKEN}@github.com/{GITHUB_REPO}.git"], check=True)
+        subprocess.run(["git", "remote", "add", "origin", f"https://{github_token}@github.com/{GITHUB_REPO}.git"], check=True)
     
     subprocess.run(["git", "checkout", "-B", GITHUB_BRANCH], check=True)
     subprocess.run(["git", "add", "."], check=True)
-    subprocess.run(["git", "commit", "-m", "Update podcast feed"], check=True)
-    subprocess.run(["git", "push", "-u", "origin", GITHUB_BRANCH, "--force"], check=True)
+    
+    # 检查是否有更改需要提交
+    try:
+        subprocess.run(["git", "commit", "-m", "Update podcast feed"], check=True)
+        subprocess.run(["git", "push", "-u", "origin", GITHUB_BRANCH, "--force"], check=True)
+        print("Git推送成功")
+    except subprocess.CalledProcessError as e:
+        print(f"Git操作失败: {e}")
+        # 如果没有更改，尝试直接推送
+        try:
+            subprocess.run(["git", "push", "-u", "origin", GITHUB_BRANCH, "--force"], check=True)
+            print("Git推送成功（无更改）")
+        except subprocess.CalledProcessError as e2:
+            print(f"Git推送最终失败: {e2}")
 
 # ----------------- 主流程 -----------------
 def main():
@@ -245,16 +266,29 @@ def main():
             temp_filepath = os.path.join(DOWNLOAD_DIR, temp_filename)
             
             print(f"下载音频: {v['title']} -> {new_filename}")
+            download_success = False
+            
             if download_audio(v['id'], temp_filename):
                 # 下载成功后重命名文件
                 if os.path.exists(temp_filepath):
-                    os.rename(temp_filepath, new_filepath)
-                    print(f"下载成功并重命名: {temp_filename} -> {new_filename}")
+                    try:
+                        os.rename(temp_filepath, new_filepath)
+                        print(f"下载成功并重命名: {temp_filename} -> {new_filename}")
+                        download_success = True
+                    except OSError as e:
+                        print(f"重命名失败: {e}")
+                        # 如果重命名失败，保留原文件名
+                        new_filename = temp_filename
+                        download_success = True
                 else:
                     print(f"下载失败，文件不存在: {temp_filename}")
             else:
                 print(f"下载失败，跳过: {v['title']}")
                 continue
+            
+            # 记录下载状态
+            v['download_success'] = download_success
+            v['filename'] = new_filename
 
     print("更新 RSS feed.xml")
     update_rss(videos)

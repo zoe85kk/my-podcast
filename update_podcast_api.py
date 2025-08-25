@@ -53,7 +53,7 @@ def extract_episode_info(title):
 
 def get_latest_videos():
     """
-    使用YouTube API获取频道中最新的视频
+    使用YouTube API获取频道中标题包含S12的最新视频
     """
     if not YOUTUBE_API_KEY:
         print("错误: 未设置 YOUTUBE_API_KEY 环境变量")
@@ -63,7 +63,7 @@ def get_latest_videos():
     last_video_id = get_last_position()
     print(f"上次处理的视频ID: {last_video_id if last_video_id else 'None'}")
     
-    # 使用YouTube API获取频道最新视频
+    # 使用YouTube API搜索频道中标题包含S12的视频
     url = f"https://www.googleapis.com/youtube/v3/search"
     params = {
         'key': YOUTUBE_API_KEY,
@@ -71,7 +71,9 @@ def get_latest_videos():
         'part': 'snippet',
         'maxResults': 50,
         'order': 'date',  # 按发布日期排序
-        'type': 'video'
+        'type': 'video',
+        'q': 'S12',  # 搜索标题包含S12的视频
+        'regionCode': 'JP'  # 设置地区为日本
     }
     
     try:
@@ -85,18 +87,18 @@ def get_latest_videos():
             title = item['snippet']['title']
             published_at = item['snippet']['publishedAt']
             
-            # 只处理主要节目视频（排除一些短视频和预告片）
-            if 'Last Week Tonight with John Oliver (HBO)' in title:
+            # 只处理标题包含S12的视频
+            if 'S12' in title.upper():
                 videos.append({
                     'id': video_id,
                     'title': title,
                     'published_at': published_at
                 })
         
-        print(f"找到 {len(videos)} 个主要节目视频")
+        print(f"找到 {len(videos)} 个标题包含S12的视频")
         
         if not videos:
-            print("没有找到主要节目视频")
+            print("没有找到标题包含S12的视频")
             return []
         
         # 按发布日期倒序排序（最新的在前面）
@@ -199,8 +201,8 @@ def download_audio_backup(video_id, filename):
     return None
 
 # ----------------- 保存视频标题映射 -----------------
-def save_video_title_mapping(video_id, video_title, episode_name):
-    """保存视频标题映射，用于RSS生成"""
+def save_video_title_mapping(video_id, video_title, episode_name, published_at):
+    """保存视频标题映射和发布时间，用于RSS生成"""
     if not episode_name:
         return
     
@@ -213,17 +215,17 @@ def save_video_title_mapping(video_id, video_title, episode_name):
             with open(mapping_file, 'r', encoding='utf-8') as f:
                 for line in f:
                     if '|' in line:
-                        parts = line.strip().split('|', 2)
-                        if len(parts) == 3:
-                            existing_mappings[parts[0]] = (parts[1], parts[2])
+                        parts = line.strip().split('|', 3)
+                        if len(parts) == 4:
+                            existing_mappings[parts[0]] = (parts[1], parts[2], parts[3])
         
         # 添加新映射
-        existing_mappings[episode_name] = (video_id, video_title)
+        existing_mappings[episode_name] = (video_id, video_title, published_at)
         
         # 写入文件
         with open(mapping_file, 'w', encoding='utf-8') as f:
-            for ep_name, (vid_id, vid_title) in existing_mappings.items():
-                f.write(f"{ep_name}|{vid_id}|{vid_title}\n")
+            for ep_name, (vid_id, vid_title, vid_published) in existing_mappings.items():
+                f.write(f"{ep_name}|{vid_id}|{vid_title}|{vid_published}\n")
         
         print(f"保存标题映射: {episode_name} -> {video_title}")
         
@@ -232,7 +234,7 @@ def save_video_title_mapping(video_id, video_title, episode_name):
 
 # ----------------- 获取视频标题映射 -----------------
 def get_video_info_for_audio(audio_filename):
-    """根据音频文件名获取对应的视频信息（ID和标题）"""
+    """根据音频文件名获取对应的视频信息（ID、标题和发布时间）"""
     # 从video_titles.txt读取视频标题映射
     mapping_file = os.path.join(DOWNLOAD_DIR, "video_titles.txt")
     if not os.path.exists(mapping_file):
@@ -245,11 +247,15 @@ def get_video_info_for_audio(audio_filename):
         with open(mapping_file, 'r', encoding='utf-8') as f:
             for line in f:
                 if '|' in line:
-                    parts = line.strip().split('|', 2)
-                    if len(parts) == 3:
+                    parts = line.strip().split('|', 3)
+                    if len(parts) == 4:
+                        ep_name, video_id, video_title, published_at = parts
+                        if ep_name == episode_name:
+                            return {'id': video_id, 'title': video_title, 'published_at': published_at}
+                    elif len(parts) == 3:  # 兼容旧格式
                         ep_name, video_id, video_title = parts
                         if ep_name == episode_name:
-                            return {'id': video_id, 'title': video_title}
+                            return {'id': video_id, 'title': video_title, 'published_at': None}
         
         return None
     except Exception as e:
@@ -295,6 +301,7 @@ def update_rss():
             # 使用视频原始标题和ID
             title = video_info['title']
             video_id = video_info['id']
+            published_at = video_info.get('published_at')
         else:
             # 如果没有找到映射，使用文件名作为后备
             episode_name = extract_episode_info(filename.replace('.mp3', ''))
@@ -303,6 +310,7 @@ def update_rss():
             else:
                 title = filename.replace('.mp3', '')
             video_id = ""  # 无法获取视频ID
+            published_at = None
         
         SubElement(item, "title").text = title
         if video_id:
@@ -311,9 +319,18 @@ def update_rss():
             SubElement(item, "link").text = f"https://www.youtube.com/channel/{CHANNEL_ID}"
         SubElement(item, "guid").text = filename
         
-        # 使用当前时间-1天作为发布时间，避免未来时间问题
-        yesterday = datetime.now() - timedelta(days=1)
-        pub_date = yesterday.strftime("%a, %d %b %Y %H:%M:%S +0000")
+        # 使用正确的发布时间，如果没有则使用当前时间
+        if published_at:
+            try:
+                # 解析ISO格式的发布时间
+                pub_date_obj = datetime.fromisoformat(published_at.replace('Z', '+00:00'))
+                pub_date = pub_date_obj.strftime("%a, %d %b %Y %H:%M:%S +0000")
+            except:
+                # 如果解析失败，使用当前时间
+                pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        else:
+            pub_date = datetime.now().strftime("%a, %d %b %Y %H:%M:%S +0000")
+        
         SubElement(item, "pubDate").text = pub_date
         
         SubElement(item, "enclosure", url=f"{RSS_URL_BASE}/{filename}", type="audio/mpeg")
@@ -397,7 +414,7 @@ def main():
                         download_success = True
                         
                         # 保存视频标题映射，用于RSS生成
-                        save_video_title_mapping(v['id'], v['title'], episode_name)
+                        save_video_title_mapping(v['id'], v['title'], episode_name, v['published_at'])
                         
                     except OSError as e:
                         print(f"重命名失败: {e}")
@@ -406,7 +423,7 @@ def main():
                         download_success = True
                         
                         # 即使重命名失败，也保存标题映射
-                        save_video_title_mapping(v['id'], v['title'], episode_name)
+                        save_video_title_mapping(v['id'], v['title'], episode_name, v['published_at'])
                 else:
                     print(f"下载失败，文件不存在: {temp_filename}")
                     download_success = False

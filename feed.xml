@@ -2,30 +2,30 @@
 <rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" version="2.0">
   <channel>
     <title>Last Week Tonight Podcast</title>
-    <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
+    <link>https://www.youtube.com/channel/UC3XTzVzaHQEd30rQbuvCtTQ</link>
     <description>Zoe Podcast</description>
     <language>en-us</language>
     <itunes:image href="https://zoe85kk.github.io/my-podcast/cover.jpg"/>
     <item>
-      <title>Last Week Tonight - S08E30</title>
-      <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
-      <guid>S08E30.mp3</guid>
-      <pubDate>Sat, 23 Aug 2025 00:38:39 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/S08E30.mp3" type="audio/mpeg"/>
+      <title>pzggl8C2fvs</title>
+      <link>https://www.youtube.com/channel/UC3XTzVzaHQEd30rQbuvCtTQ</link>
+      <guid>pzggl8C2fvs.mp3</guid>
+      <pubDate>Sun, 24 Aug 2025 21:32:16 +0000</pubDate>
+      <enclosure url="https://zoe85kk.github.io/my-podcast/pzggl8C2fvs.mp3" type="audio/mpeg"/>
     </item>
     <item>
-      <title>Last Week Tonight - S08E29</title>
-      <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
-      <guid>S08E29.mp3</guid>
-      <pubDate>Sat, 23 Aug 2025 00:38:39 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/S08E29.mp3" type="audio/mpeg"/>
+      <title>TWpg1RmzAbc</title>
+      <link>https://www.youtube.com/channel/UC3XTzVzaHQEd30rQbuvCtTQ</link>
+      <guid>TWpg1RmzAbc.mp3</guid>
+      <pubDate>Sun, 24 Aug 2025 21:32:16 +0000</pubDate>
+      <enclosure url="https://zoe85kk.github.io/my-podcast/TWpg1RmzAbc.mp3" type="audio/mpeg"/>
     </item>
     <item>
-      <title>Last Week Tonight - S08E28</title>
-      <link>https://www.youtube.com/playlist?list=PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W</link>
-      <guid>S08E28.mp3</guid>
-      <pubDate>Sat, 23 Aug 2025 00:38:39 +0000</pubDate>
-      <enclosure url="https://zoe85kk.github.io/my-podcast/S08E28.mp3" type="audio/mpeg"/>
+      <title>3lzfH86avIc</title>
+      <link>https://www.youtube.com/channel/UC3XTzVzaHQEd30rQbuvCtTQ</link>
+      <guid>3lzfH86avIc.mp3</guid>
+      <pubDate>Sun, 24 Aug 2025 21:32:16 +0000</pubDate>
+      <enclosure url="https://zoe85kk.github.io/my-podcast/3lzfH86avIc.mp3" type="audio/mpeg"/>
     </item>
   </channel>
 </rss>

@@ -6,11 +6,11 @@ from xml.etree.ElementTree import Element, SubElement, ElementTree, tostring
 from xml.dom.minidom import parseString
 
 # ----------------- 配置 -----------------
-PLAYLIST_ID = "PLmKbqjSZR8TbPlILkdUvuBr7NPsblAK9W"  # Last Week Tonight播放列表ID
+CHANNEL_ID = "UC3XTzVzaHQEd30rQbuvCtTQ"  # Last Week Tonight频道ID
 DOWNLOAD_DIR = "."
 FEED_FILE = "feed.xml"
 MAX_ITEMS = 3  # RSS 保留最近几集
-LAST_POSITION_FILE = "last_index.txt"  # 存储上次处理的播放列表位置（position）
+LAST_POSITION_FILE = "last_index.txt"  # 存储上次处理的视频ID
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")  # 必须设置环境变量
 
 # GitHub 配置
@@ -23,26 +23,26 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # --------------- 获取最新视频 ---------------
 def get_last_position():
-    """获取上次处理的播放列表位置（position）"""
+    """获取上次处理的视频ID"""
     last_position_path = os.path.join(DOWNLOAD_DIR, LAST_POSITION_FILE)
     if os.path.exists(last_position_path):
         try:
             with open(last_position_path, 'r') as f:
-                return int(f.read().strip())
-        except (ValueError, FileNotFoundError):
+                return f.read().strip()
+        except (FileNotFoundError):
             pass
-    return -1  # 如果没有记录，从-1开始（这样position=0的视频也会被处理）
+    return ""  # 如果没有记录，返回空字符串
 
-def save_last_position(position):
-    """保存最新处理的播放列表位置（position）"""
+def save_last_position(video_id):
+    """保存最新处理的视频ID"""
     last_position_path = os.path.join(DOWNLOAD_DIR, LAST_POSITION_FILE)
     with open(last_position_path, 'w') as f:
-        f.write(str(position))
+        f.write(video_id)
 
 def extract_episode_info(title):
     """从标题中提取季数和集数信息"""
     import re
-    # 匹配 S8 E30 或 S08 E30 格式
+    # 匹配 S12 E30 或 S12E30 格式
     pattern = r'S(\d+)\s*E(\d+)'
     match = re.search(pattern, title, re.IGNORECASE)
     if match:
@@ -53,23 +53,25 @@ def extract_episode_info(title):
 
 def get_latest_videos():
     """
-    使用YouTube API获取最新视频
+    使用YouTube API获取频道中最新的视频
     """
     if not YOUTUBE_API_KEY:
         print("错误: 未设置 YOUTUBE_API_KEY 环境变量")
         print("请设置环境变量: export YOUTUBE_API_KEY='your_api_key_here'")
         return []
     
-    last_position = get_last_position()
-    print(f"上次处理的播放列表位置: {last_position}")
+    last_video_id = get_last_position()
+    print(f"上次处理的视频ID: {last_video_id if last_video_id else 'None'}")
     
-    # 使用YouTube API获取播放列表最新视频
-    url = f"https://www.googleapis.com/youtube/v3/playlistItems"
+    # 使用YouTube API获取频道最新视频
+    url = f"https://www.googleapis.com/youtube/v3/search"
     params = {
         'key': YOUTUBE_API_KEY,
-        'playlistId': PLAYLIST_ID,
+        'channelId': CHANNEL_ID,
         'part': 'snippet',
-        'maxResults': 50
+        'maxResults': 50,
+        'order': 'date',  # 按发布日期排序
+        'type': 'video'
     }
     
     try:
@@ -79,38 +81,43 @@ def get_latest_videos():
         
         videos = []
         for item in data.get('items', []):
-            video_id = item['snippet']['resourceId']['videoId']
+            video_id = item['id']['videoId']
             title = item['snippet']['title']
             published_at = item['snippet']['publishedAt']
-            position = item['snippet']['position']  # 播放列表中的位置
-                
-            videos.append({
-                'id': video_id,
-                'title': title,
-                'published_at': published_at,
-                'position': position
-            })
+            
+            # 只处理主要节目视频（排除一些短视频和预告片）
+            if 'Last Week Tonight with John Oliver (HBO)' in title:
+                videos.append({
+                    'id': video_id,
+                    'title': title,
+                    'published_at': published_at
+                })
         
-        print(f"播放列表中总共有 {len(videos)} 个视频")
-        print(f"最大索引: {max([v['position'] for v in videos]) if videos else 'None'}")
-        print(f"最小索引: {min([v['position'] for v in videos]) if videos else 'None'}")
+        print(f"找到 {len(videos)} 个主要节目视频")
         
-        # 查找大于上次位置的视频（新视频）
-        new_videos = [v for v in videos if v['position'] > last_position]
-        
-        if not new_videos:
-            print(f"没有找到新的视频（position > {last_position}）")
+        if not videos:
+            print("没有找到主要节目视频")
             return []
         
-        # 按播放列表位置倒序排序（position大的在前面，代表最新的视频）
-        new_videos.sort(key=lambda v: v['position'], reverse=True)
+        # 按发布日期倒序排序（最新的在前面）
+        videos.sort(key=lambda v: v['published_at'], reverse=True)
+        
+        # 查找新的视频（ID不在上次处理记录中的）
+        if last_video_id:
+            new_videos = [v for v in videos if v['id'] != last_video_id]
+        else:
+            new_videos = videos
+        
+        if not new_videos:
+            print(f"没有找到新的视频")
+            return []
         
         # 只保留最新 MAX_ITEMS 条
         latest_videos = new_videos[:MAX_ITEMS]
         
         print(f"找到 {len(latest_videos)} 个新视频")
         for v in latest_videos:
-            print(f"Title: {v['title']}, Position: {v['position']}, ID: {v['id']}")
+            print(f"Title: {v['title']}, ID: {v['id']}, Published: {v['published_at']}")
         
         return latest_videos
         
@@ -224,8 +231,8 @@ def save_video_title_mapping(video_id, video_title, episode_name):
         print(f"保存标题映射失败: {e}")
 
 # ----------------- 获取视频标题映射 -----------------
-def get_video_title_for_audio(audio_filename):
-    """根据音频文件名获取对应的视频标题"""
+def get_video_info_for_audio(audio_filename):
+    """根据音频文件名获取对应的视频信息（ID和标题）"""
     # 从video_titles.txt读取视频标题映射
     mapping_file = os.path.join(DOWNLOAD_DIR, "video_titles.txt")
     if not os.path.exists(mapping_file):
@@ -242,7 +249,7 @@ def get_video_title_for_audio(audio_filename):
                     if len(parts) == 3:
                         ep_name, video_id, video_title = parts
                         if ep_name == episode_name:
-                            return video_title
+                            return {'id': video_id, 'title': video_title}
         
         return None
     except Exception as e:
@@ -261,7 +268,7 @@ def update_rss():
     
     channel = SubElement(rss, "channel")
     SubElement(channel, "title").text = "Last Week Tonight Podcast"
-    SubElement(channel, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
+    SubElement(channel, "link").text = f"https://www.youtube.com/channel/{CHANNEL_ID}"
     SubElement(channel, "description").text = "Zoe Podcast"
     SubElement(channel, "language").text = "en-us"
     SubElement(channel, "itunes:image", href=f"{RSS_URL_BASE}/cover.jpg")
@@ -281,12 +288,13 @@ def update_rss():
         # 创建RSS条目
         item = SubElement(channel, "item")
         
-        # 尝试从last_episode.txt获取视频标题映射
-        video_title = get_video_title_for_audio(filename)
+        # 尝试从video_titles.txt获取视频标题映射
+        video_info = get_video_info_for_audio(filename)
         
-        if video_title:
-            # 使用视频原始标题
-            title = video_title
+        if video_info:
+            # 使用视频原始标题和ID
+            title = video_info['title']
+            video_id = video_info['id']
         else:
             # 如果没有找到映射，使用文件名作为后备
             episode_name = extract_episode_info(filename.replace('.mp3', ''))
@@ -294,9 +302,13 @@ def update_rss():
                 title = f"Last Week Tonight - {episode_name}"
             else:
                 title = filename.replace('.mp3', '')
+            video_id = ""  # 无法获取视频ID
         
         SubElement(item, "title").text = title
-        SubElement(item, "link").text = f"https://www.youtube.com/playlist?list={PLAYLIST_ID}"
+        if video_id:
+            SubElement(item, "link").text = f"https://www.youtube.com/watch?v={video_id}"
+        else:
+            SubElement(item, "link").text = f"https://www.youtube.com/channel/{CHANNEL_ID}"
         SubElement(item, "guid").text = filename
         
         # 使用当前时间-1天作为发布时间，避免未来时间问题
@@ -413,9 +425,9 @@ def main():
     update_rss()
 
     # 保存最新处理的播放列表位置
-    latest_position = videos[0]['position']
-    save_last_position(latest_position)
-    print(f"保存最新播放列表位置: {latest_position}")
+    latest_video_id = videos[0]['id']
+    save_last_position(latest_video_id)
+    print(f"保存最新视频ID: {latest_video_id}")
 
     print("推送到 GitHub")
     git_push()

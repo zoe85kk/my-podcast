@@ -23,21 +23,23 @@ os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 # --------------- 获取最新视频 ---------------
 def get_last_position():
-    """获取上次处理的视频ID"""
+    """获取上次处理的最后发布时间"""
     last_position_path = os.path.join(DOWNLOAD_DIR, LAST_POSITION_FILE)
     if os.path.exists(last_position_path):
         try:
             with open(last_position_path, 'r') as f:
-                return f.read().strip()
+                content = f.read().strip()
+                if content:
+                    return content
         except (FileNotFoundError):
             pass
     return ""  # 如果没有记录，返回空字符串
 
-def save_last_position(video_id):
-    """保存最新处理的视频ID"""
+def save_last_position(last_published_at):
+    """保存最新处理的发布时间"""
     last_position_path = os.path.join(DOWNLOAD_DIR, LAST_POSITION_FILE)
     with open(last_position_path, 'w') as f:
-        f.write(video_id)
+        f.write(last_published_at)
 
 def extract_episode_info(title):
     """从标题中提取季数和集数信息"""
@@ -60,8 +62,8 @@ def get_latest_videos():
         print("请设置环境变量: export YOUTUBE_API_KEY='your_api_key_here'")
         return []
     
-    last_video_id = get_last_position()
-    print(f"上次处理的视频ID: {last_video_id if last_video_id else 'None'}")
+    last_published_at = get_last_position()
+    print(f"上次处理的最后发布时间: {last_published_at if last_published_at else 'None'}")
     
     # 使用YouTube API搜索频道中标题包含S12的视频
     url = f"https://www.googleapis.com/youtube/v3/search"
@@ -69,7 +71,7 @@ def get_latest_videos():
         'key': YOUTUBE_API_KEY,
         'channelId': CHANNEL_ID,
         'part': 'snippet',
-        'maxResults': 50,
+        'maxResults': 100,  # 增加结果数量，确保不遗漏
         'order': 'date',  # 按发布日期排序
         'type': 'video',
         'q': 'S12',  # 搜索标题包含S12的视频
@@ -104,11 +106,23 @@ def get_latest_videos():
         # 按发布日期倒序排序（最新的在前面）
         videos.sort(key=lambda v: v['published_at'], reverse=True)
         
-        # 查找新的视频（ID不在上次处理记录中的）
-        if last_video_id:
-            new_videos = [v for v in videos if v['id'] != last_video_id]
+        # 基于发布时间判断新视频
+        new_videos = []
+        if last_published_at:
+            # 如果之前有记录，找到比上次处理时间更新的视频
+            last_time = datetime.fromisoformat(last_published_at.replace('Z', '+00:00'))
+            for v in videos:
+                video_time = datetime.fromisoformat(v['published_at'].replace('Z', '+00:00'))
+                if video_time > last_time:
+                    new_videos.append(v)
+                else:
+                    break  # 一旦遇到时间更早的视频就停止
+            
+            print(f"找到 {len(new_videos)} 个发布时间更新的视频")
         else:
-            new_videos = videos
+            # 第一次运行，下载最新的几个视频
+            new_videos = videos[:MAX_ITEMS]
+            print(f"首次运行，下载最新的 {len(new_videos)} 个视频")
         
         if not new_videos:
             print(f"没有找到新的视频")
@@ -117,7 +131,7 @@ def get_latest_videos():
         # 只保留最新 MAX_ITEMS 条
         latest_videos = new_videos[:MAX_ITEMS]
         
-        print(f"找到 {len(latest_videos)} 个新视频")
+        print(f"准备下载 {len(latest_videos)} 个新视频")
         for v in latest_videos:
             print(f"Title: {v['title']}, ID: {v['id']}, Published: {v['published_at']}")
         
@@ -441,10 +455,11 @@ def main():
     # 更新RSS，包含所有音频文件
     update_rss()
 
-    # 保存最新处理的播放列表位置
-    latest_video_id = videos[0]['id']
-    save_last_position(latest_video_id)
-    print(f"保存最新视频ID: {latest_video_id}")
+    # 保存最新处理的发布时间
+    if videos:
+        latest_published_at = videos[0]['published_at']
+        save_last_position(latest_published_at)
+        print(f"保存最新发布时间: {latest_published_at}")
 
     print("推送到 GitHub")
     git_push()
